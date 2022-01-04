@@ -1,9 +1,9 @@
+use cloyster::pagecache::Snapshot;
 use std::{
     fs,
     io::{self, Read},
     path::Path,
 };
-use cloyster::pagecache::Snapshot;
 
 pub fn main() -> Result<(), Box<dyn std::error::Error>> {
     let filter = |dir_entry: io::Result<fs::DirEntry>| {

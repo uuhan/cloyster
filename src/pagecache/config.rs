@@ -104,7 +104,7 @@ impl Default for ConfigBuilder {
 macro_rules! supported {
     ($cond:expr, $msg:expr) => {
         if !$cond {
-            return Err(Error::Unsupported($msg.to_owned()))
+            return Err(Error::Unsupported($msg.to_owned()));
         }
     };
 }
@@ -172,7 +172,10 @@ impl ConfigBuilder {
 
         let seed = SALT_COUNTER.fetch_add(1, Ordering::SeqCst) as u64;
 
-        let now = (SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap().as_nanos()
+        let now = (SystemTime::now()
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
             << 48) as u64;
 
         let pid = std::process::id() as u64;
@@ -246,11 +249,23 @@ impl ConfigBuilder {
             "segment_cleanup_skew cannot be greater than 99%"
         );
         if self.use_compression {
-            supported!(cfg!(feature = "compression"), "the compression feature must be enabled");
+            supported!(
+                cfg!(feature = "compression"),
+                "the compression feature must be enabled"
+            );
         }
-        supported!(self.compression_factor >= 1, "compression_factor must be >= 1");
-        supported!(self.compression_factor <= 22, "compression_factor must be <= 22");
-        supported!(self.idgen_persist_interval > 0, "idgen_persist_interval must be above 0");
+        supported!(
+            self.compression_factor >= 1,
+            "compression_factor must be >= 1"
+        );
+        supported!(
+            self.compression_factor <= 22,
+            "compression_factor must be <= 22"
+        );
+        supported!(
+            self.idgen_persist_interval > 0,
+            "idgen_persist_interval must be above 0"
+        );
         Ok(())
     }
 
@@ -274,7 +289,7 @@ impl ConfigBuilder {
                 "provided parent directory is a file, \
                  not a directory: {:?}",
                 dir
-            )))
+            )));
         }
 
         if !dir.exists() {
@@ -301,14 +316,17 @@ impl ConfigBuilder {
     fn try_lock(&self, file: File) -> Result<File> {
         #[cfg(any(windows, target_os = "linux", target_os = "macos"))]
         {
-            let try_lock =
-                if self.read_only { file.try_lock_shared() } else { file.try_lock_exclusive() };
+            let try_lock = if self.read_only {
+                file.try_lock_shared()
+            } else {
+                file.try_lock_exclusive()
+            };
 
             if let Err(e) = try_lock {
                 return Err(Error::Io(io::Error::new(
                     ErrorKind::Other,
                     format!("could not acquire lock on {:?}: {:?}", self.db_path(), e),
-                )))
+                )));
             }
         }
 
@@ -376,7 +394,7 @@ impl ConfigBuilder {
 
         if f.metadata()?.len() <= 8 {
             warn!("empty/corrupt configuration file found");
-            return Ok(None)
+            return Ok(None);
         }
 
         let mut buf = vec![];
@@ -461,11 +479,14 @@ impl Drop for ConfigInner {
         }
 
         if !self.temporary {
-            return
+            return;
         }
 
         // Our files are temporary, so nuke them.
-        debug!("removing temporary storage file {}", self.inner.path.to_string_lossy());
+        debug!(
+            "removing temporary storage file {}",
+            self.inner.path.to_string_lossy()
+        );
         let _res = fs::remove_dir_all(&self.path);
     }
 }
@@ -485,7 +506,9 @@ impl Config {
 
     pub(crate) fn reset_global_error(&self) {
         let guard = pin();
-        let old = self.global_error.swap(Shared::default(), Ordering::SeqCst, &guard);
+        let old = self
+            .global_error
+            .swap(Shared::default(), Ordering::SeqCst, &guard);
         if !old.is_null() {
             let guard = pin();
             unsafe {
@@ -598,9 +621,18 @@ impl Config {
         verify_pagestate(&regenerated.pt, &incremental.pt, "regenerated");
         verify_pagestate(&incremental.pt, &regenerated.pt, "incremental");
 
-        assert_eq!(incremental.pt, regenerated.pt, "snapshot pagetable diverged");
-        assert_eq!(incremental.last_lsn, regenerated.last_lsn, "snapshot max_lsn diverged");
-        assert_eq!(incremental.last_lid, regenerated.last_lid, "snapshot last_lid diverged");
+        assert_eq!(
+            incremental.pt, regenerated.pt,
+            "snapshot pagetable diverged"
+        );
+        assert_eq!(
+            incremental.last_lsn, regenerated.last_lsn,
+            "snapshot max_lsn diverged"
+        );
+        assert_eq!(
+            incremental.last_lid, regenerated.last_lid,
+            "snapshot last_lid diverged"
+        );
 
         /*
         assert_eq!(
@@ -616,7 +648,9 @@ impl Config {
     #[doc(hidden)]
     // truncate the underlying file for corruption testing purposes.
     pub fn truncate_corrupt(&self, new_len: u64) {
-        self.file.set_len(new_len).expect("should be able to truncate");
+        self.file
+            .set_len(new_len)
+            .expect("should be able to truncate");
     }
 }
 
@@ -634,8 +668,11 @@ fn get_cgroup_memory_limit() -> io::Result<u64> {
 #[cfg(target_os = "linux")]
 fn read_u64_from(mut file: File) -> io::Result<u64> {
     let mut s = String::new();
-    file.read_to_string(&mut s)
-        .and_then(|_| s.trim().parse().map_err(|e| io::Error::new(ErrorKind::InvalidData, e)))
+    file.read_to_string(&mut s).and_then(|_| {
+        s.trim()
+            .parse()
+            .map_err(|e| io::Error::new(ErrorKind::InvalidData, e))
+    })
 }
 
 /// Returns the maximum size of total available memory of the process, in bytes.
@@ -658,12 +695,12 @@ fn get_rlimit_as() -> io::Result<libc::rlimit> {
 fn get_available_memory() -> io::Result<u64> {
     let pages = unsafe { libc::sysconf(libc::_SC_PHYS_PAGES) };
     if pages == -1 {
-        return Err(io::Error::last_os_error())
+        return Err(io::Error::last_os_error());
     }
 
     let page_size = unsafe { libc::sysconf(libc::_SC_PAGE_SIZE) };
     if page_size == -1 {
-        return Err(io::Error::last_os_error())
+        return Err(io::Error::last_os_error());
     }
 
     Ok((pages as u64) * (page_size as u64))
@@ -687,7 +724,7 @@ fn get_memory_limit() -> u64 {
         // running in a memory restricted environment.
         // src: https://github.com/dotnet/coreclr/blob/master/src/pal/src/misc/cgroup.cpp#L385-L428
         if max > 0x7FFF_FFFF_0000_0000 {
-            return 0
+            return 0;
         }
     }
 

@@ -30,7 +30,7 @@ impl IndexBlock {
     {
         // #1. overlaps if min ∈ range or max ∈ range
         if range.contains(self.min()) || range.contains(self.max()) {
-            return true
+            return true;
         }
 
         // #2. overlaps if range ⊂ [min, max] & range ≠ ∅

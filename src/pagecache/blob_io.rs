@@ -15,8 +15,11 @@ pub(crate) fn read_blob(blob_ptr: Lsn, config: &Config) -> Result<(MessageKind, 
     let mut crc_expected_bytes = [0_u8; std::mem::size_of::<u32>()];
 
     if let Err(e) = f.read_exact(&mut crc_expected_bytes) {
-        debug!("failed to read the initial CRC bytes in the blob at {}: {:?}", blob_ptr, e,);
-        return Err(e.into())
+        debug!(
+            "failed to read the initial CRC bytes in the blob at {}: {:?}",
+            blob_ptr, e,
+        );
+        return Err(e.into());
     }
 
     let crc_expected = arr_to_u32(&crc_expected_bytes);
@@ -24,14 +27,20 @@ pub(crate) fn read_blob(blob_ptr: Lsn, config: &Config) -> Result<(MessageKind, 
     let mut kind_byte = [0_u8];
 
     if let Err(e) = f.read_exact(&mut kind_byte) {
-        debug!("failed to read the initial CRC bytes in the blob at {}: {:?}", blob_ptr, e,);
-        return Err(e.into())
+        debug!(
+            "failed to read the initial CRC bytes in the blob at {}: {:?}",
+            blob_ptr, e,
+        );
+        return Err(e.into());
     }
 
     let mut buf = vec![];
     if let Err(e) = f.read_to_end(&mut buf) {
-        debug!("failed to read data after the CRC bytes in blob at {}: {:?}", blob_ptr, e,);
-        return Err(e.into())
+        debug!(
+            "failed to read data after the CRC bytes in blob at {}: {:?}",
+            blob_ptr, e,
+        );
+        return Err(e.into());
     }
 
     let mut hasher = crc32fast::Hasher::new();
@@ -40,18 +49,27 @@ pub(crate) fn read_blob(blob_ptr: Lsn, config: &Config) -> Result<(MessageKind, 
     let crc_actual = hasher.finalize();
 
     if crc_expected == crc_actual {
-        let buf = if config.use_compression { maybe_decompress(buf)? } else { buf };
+        let buf = if config.use_compression {
+            maybe_decompress(buf)?
+        } else {
+            buf
+        };
         Ok((MessageKind::from(kind_byte[0]), buf))
     } else {
         warn!("blob {} failed crc check!", blob_ptr);
 
-        Err(Error::Corruption { at: DiskPtr::Blob(0, blob_ptr) })
+        Err(Error::Corruption {
+            at: DiskPtr::Blob(0, blob_ptr),
+        })
     }
 }
 
 pub(crate) fn write_blob(config: &Config, kind: MessageKind, id: Lsn, data: &[u8]) -> Result<()> {
     let path = config.blob_path(id);
-    let mut f = std::fs::OpenOptions::new().write(true).create_new(true).open(&path)?;
+    let mut f = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&path)?;
 
     let kind_buf = &[kind.into()];
 
@@ -75,7 +93,10 @@ pub(crate) fn gc_blobs(config: &Config, stable_lsn: Lsn) -> Result<()> {
     let blob_dir = stable.parent().unwrap();
     let blobs = std::fs::read_dir(blob_dir)?;
 
-    debug!("gc_blobs removing any blob with an lsn above {}", stable_lsn);
+    debug!(
+        "gc_blobs removing any blob with an lsn above {}",
+        stable_lsn
+    );
 
     for blob in blobs {
         let path = blob?.path();
@@ -87,7 +108,7 @@ pub(crate) fn gc_blobs(config: &Config, stable_lsn: Lsn) -> Result<()> {
                 "blobs directory contains \
                  unparsable path ({:?}): {}",
                 path, e
-            )))
+            )));
         }
 
         let lsn = lsn_res.unwrap();

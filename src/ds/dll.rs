@@ -9,7 +9,11 @@ pub struct Node<Item> {
 
 impl<Item> Node<Item> {
     pub fn new(item: Item) -> Self {
-        Self { item, prev: ptr::null_mut(), next: ptr::null_mut() }
+        Self {
+            item,
+            prev: ptr::null_mut(),
+            next: ptr::null_mut(),
+        }
     }
 
     pub fn remove(&mut self) {
@@ -41,7 +45,11 @@ impl<Item> Default for DoublyLinkedList<Item> {
         let head = ptr::null_mut();
         let tail = ptr::null_mut();
 
-        Self { head, tail, size: 0 }
+        Self {
+            head,
+            tail,
+            size: 0,
+        }
     }
 }
 

@@ -291,7 +291,10 @@ impl Metrics {
             lat("res cvar w", &self.reserve_written_condvar_wait),
         ]);
         println!("log reservations: {}", self.log_reservations.load(Acquire));
-        println!("log res attempts: {}", self.log_reservation_attempts.load(Acquire));
+        println!(
+            "log res attempts: {}",
+            self.log_reservation_attempts.load(Acquire)
+        );
 
         println!("{}", std::iter::repeat("-").take(134).collect::<String>());
         println!("segment accountant:");
@@ -307,8 +310,14 @@ impl Metrics {
         {
             println!("{}", std::iter::repeat("-").take(134).collect::<String>());
             println!("allocation statistics:");
-            println!("total allocations: {}", measure_allocs::ALLOCATIONS.load(Acquire));
-            println!("allocated bytes: {}", measure_allocs::ALLOCATED_BYTES.load(Acquire));
+            println!(
+                "total allocations: {}",
+                measure_allocs::ALLOCATIONS.load(Acquire)
+            );
+            println!(
+                "allocated bytes: {}",
+                measure_allocs::ALLOCATED_BYTES.load(Acquire)
+            );
         }
     }
 }

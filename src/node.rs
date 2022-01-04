@@ -13,6 +13,10 @@ pub struct Node {
 
 impl Node {
     pub fn new(prev: Option<PageId>) -> Self {
-        Self { prev, hash: None, inner: BTreeMap::new() }
+        Self {
+            prev,
+            hash: None,
+            inner: BTreeMap::new(),
+        }
     }
 }

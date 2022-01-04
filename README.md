@@ -1,4 +1,4 @@
 ### Cloyster
 
-Different storage for different store purporse.
+Different storage for different store purpose.
 

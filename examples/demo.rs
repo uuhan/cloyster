@@ -1,5 +1,5 @@
-use serde::{Deserialize, Serialize};
 use cloyster::pagecache::{self, pin, Config, Materializer};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Eq, PartialEq, Ord, PartialOrd, Debug, Serialize, Deserialize)]
 pub struct TestState(String);
@@ -15,7 +15,9 @@ impl Materializer for TestState {
 fn main() {
     env_logger::init();
 
-    let config = pagecache::ConfigBuilder::new().path("./cloyster.db").build();
+    let config = pagecache::ConfigBuilder::new()
+        .path("./cloyster.db")
+        .build();
     let pc: pagecache::PageCache<TestState> = pagecache::PageCache::start(config).unwrap();
     {
         // We begin by initiating a new transaction, which
@@ -29,8 +31,14 @@ fn main() {
         let (id, mut key) = pc.allocate(TestState("a".to_owned()), &guard).unwrap();
 
         // Subsequent atomic updates should be added with link.
-        key = pc.link(id, key, TestState("b".to_owned()), &guard).unwrap().unwrap();
-        key = pc.link(id, key, TestState("c".to_owned()), &guard).unwrap().unwrap();
+        key = pc
+            .link(id, key, TestState("b".to_owned()), &guard)
+            .unwrap()
+            .unwrap();
+        key = pc
+            .link(id, key, TestState("c".to_owned()), &guard)
+            .unwrap()
+            .unwrap();
 
         // println!("ID: {}", id);
 

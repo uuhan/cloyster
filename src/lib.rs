@@ -6,10 +6,10 @@ pub mod prelude {
         Value { value: Value },
         Deletion,
     }
-    pub use blake3::{Hash, Hasher};
     pub use super::Error;
+    pub use blake3::{Hash, Hasher};
 
-    pub use super::{config::Config, promise::Promise, tree::TreeBlock};
+    pub use super::{config::Config, tree::TreeBlock};
 
     pub use crossbeam_epoch::{
         pin, unprotected, Atomic, Collector, Guard, LocalHandle, Owned, Shared,
@@ -53,12 +53,11 @@ mod config;
 mod context;
 mod database;
 mod ds;
+mod hasher;
 mod iter;
 mod lock;
 mod node;
-mod hasher;
 pub mod pagecache;
-mod promise;
 mod tree;
 
 pub use database::Database;

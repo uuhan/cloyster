@@ -48,7 +48,14 @@ impl Iter {
             node = prev_node;
         }
 
-        Iter { block: block.clone(), heap, prev: None, lo, hi, guard }
+        Iter {
+            block: block.clone(),
+            heap,
+            prev: None,
+            lo,
+            hi,
+            guard,
+        }
     }
 
     fn bounds_collapsed(&self) -> bool {
@@ -63,7 +70,7 @@ impl Iter {
 
     fn next_inner(&mut self) -> Option<<Self as Iterator>::Item> {
         if self.bounds_collapsed() {
-            return None
+            return None;
         }
 
         while !self.heap.is_empty() {
@@ -73,7 +80,7 @@ impl Iter {
             if let Some(prev) = self.prev.as_ref() {
                 // and current key equeals the previous key
                 if prev == &key {
-                    continue
+                    continue;
                 }
             }
 
@@ -99,7 +106,10 @@ impl Iter {
         }
 
         if let Some(key) = self.prev.take() {
-            self.block.get(&key).map(|v| v.map(|v| (key, v))).transpose()
+            self.block
+                .get(&key)
+                .map(|v| v.map(|v| (key, v)))
+                .transpose()
         } else {
             None
         }

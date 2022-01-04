@@ -1,4 +1,4 @@
-use crate::promise::Promise;
+use abyss_promise::Promise;
 
 use parking_lot::{Condvar, Mutex, RwLock};
 
@@ -97,7 +97,10 @@ impl IoBufs {
                 }
             };
 
-            (snapshot_last_lsn + Lsn::from(width), snapshot_last_lid + LogId::from(width))
+            (
+                snapshot_last_lsn + Lsn::from(width),
+                snapshot_last_lid + LogId::from(width),
+            )
         };
 
         let mut iobuf = IoBuf::new(io_buf_size);
@@ -128,7 +131,10 @@ impl IoBufs {
             iobuf.capacity = io_buf_size;
             iobuf.store_segment_header(0, next_lsn, stable);
 
-            debug!("starting log at clean offset {}, recovered lsn {}", next_lid, next_lsn);
+            debug!(
+                "starting log at clean offset {}, recovered lsn {}",
+                next_lid, next_lsn
+            );
         } else {
             // the tip offset is not completely full yet, reuse it
             let offset = assert_usize(next_lid % io_buf_size as LogId);
@@ -136,7 +142,10 @@ impl IoBufs {
             iobuf.capacity = io_buf_size - offset;
             iobuf.lsn = next_lsn;
 
-            debug!("starting log at split offset {}, recovered lsn {}", next_lid, next_lsn);
+            debug!(
+                "starting log at split offset {}, recovered lsn {}",
+                next_lid, next_lsn
+            );
         }
 
         // remove all blob files larger than our stable offset
@@ -292,15 +301,27 @@ impl IoBufs {
 
         let io_buf_size = self.config.io_buf_size;
 
-        assert_eq!((lid % io_buf_size as LogId) as Lsn, base_lsn % io_buf_size as Lsn);
+        assert_eq!(
+            (lid % io_buf_size as LogId) as Lsn,
+            base_lsn % io_buf_size as Lsn
+        );
 
-        assert_ne!(lid, LogId::max_value(), "created reservation for uninitialized slot",);
+        assert_ne!(
+            lid,
+            LogId::max_value(),
+            "created reservation for uninitialized slot",
+        );
 
         assert!(is_sealed(header));
 
         let bytes_to_write = offset(header);
 
-        trace!("write_to_log lid {} lsn {} len {}", lid, base_lsn, bytes_to_write);
+        trace!(
+            "write_to_log lid {} lsn {} len {}",
+            lid,
+            base_lsn,
+            bytes_to_write
+        );
 
         let maxed = iobuf.linearized(|| iobuf.get_maxed());
         let unused_space = capacity - bytes_to_write;
@@ -423,7 +444,11 @@ impl IoBufs {
     // fast, compared to the other operations on shared state.
     fn mark_interval(&self, whence: Lsn, len: usize) {
         debug!("mark_interval({}, {})", whence, len);
-        assert!(len > 0, "mark_interval called with an empty length at {}", whence);
+        assert!(
+            len > 0,
+            "mark_interval called with an empty length at {}",
+            whence
+        );
         let mut intervals = self.intervals.lock();
 
         let interval = (whence, whence + len as Lsn - 1);
@@ -457,12 +482,15 @@ impl IoBufs {
             );
             if cur_stable + 1 == low {
                 let old = self.stable_lsn.swap(high, SeqCst);
-                assert_eq!(old, cur_stable, "concurrent stable offset modification detected");
+                assert_eq!(
+                    old, cur_stable,
+                    "concurrent stable offset modification detected"
+                );
                 debug!("new highest interval: {} - {}", low, high);
                 intervals.pop();
                 updated = true;
             } else {
-                break
+                break;
             }
         }
 
@@ -490,7 +518,7 @@ pub(crate) fn make_stable(iobufs: &Arc<IoBufs>, lsn: Lsn) -> Result<usize> {
     // NB before we write the 0th byte of the file, stable  is -1
     let first_stable = iobufs.stable();
     if first_stable >= lsn {
-        return Ok(0)
+        return Ok(0);
     }
 
     let mut stable = first_stable;
@@ -499,7 +527,7 @@ pub(crate) fn make_stable(iobufs: &Arc<IoBufs>, lsn: Lsn) -> Result<usize> {
         if let Err(e) = iobufs.config.global_error() {
             let _lock = iobufs.intervals.lock();
             iobufs.interval_updated.notify_all();
-            return Err(e)
+            return Err(e);
         }
 
         let iobuf = iobufs.current_iobuf();
@@ -514,7 +542,7 @@ pub(crate) fn make_stable(iobufs: &Arc<IoBufs>, lsn: Lsn) -> Result<usize> {
             // the next io buffer, which may have dirty
             // data we need to flush (and maybe no other
             // thread is still alive to do so)
-            continue
+            continue;
         }
 
         // block until another thread updates the stable lsn
@@ -530,7 +558,10 @@ pub(crate) fn make_stable(iobufs: &Arc<IoBufs>, lsn: Lsn) -> Result<usize> {
                     .wait_for(&mut waiter, std::time::Duration::from_secs(30));
                 if timeout.timed_out() {
                     fn tn() -> String {
-                        std::thread::current().name().unwrap_or("unknown").to_owned()
+                        std::thread::current()
+                            .name()
+                            .unwrap_or("unknown")
+                            .to_owned()
                     }
                     panic!(
                         "{} failed to make_stable after 30 seconds. \
@@ -547,7 +578,7 @@ pub(crate) fn make_stable(iobufs: &Arc<IoBufs>, lsn: Lsn) -> Result<usize> {
             }
         } else {
             trace!("make_stable({}) returning", lsn);
-            break
+            break;
         }
     }
 
@@ -573,7 +604,7 @@ pub(crate) fn maybe_seal_and_write_iobuf(
 ) -> Result<()> {
     if is_sealed(header) {
         // this buffer is already sealed. nothing to do here.
-        return Ok(())
+        return Ok(());
     }
 
     // NB need to do this before CAS because it can get
@@ -585,7 +616,7 @@ pub(crate) fn maybe_seal_and_write_iobuf(
 
     if offset(header) > capacity {
         // a race happened, nothing we can do
-        return Ok(())
+        return Ok(());
     }
 
     let sealed = mk_sealed(header);
@@ -596,7 +627,7 @@ pub(crate) fn maybe_seal_and_write_iobuf(
     let worked = iobuf.linearized(|| {
         if iobuf.cas_header(header, sealed).is_err() {
             // cas failed, don't try to continue
-            return false
+            return false;
         }
 
         trace!("sealed iobuf with lsn {}", lsn);
@@ -613,7 +644,7 @@ pub(crate) fn maybe_seal_and_write_iobuf(
         true
     });
     if !worked {
-        return Ok(())
+        return Ok(());
     }
 
     assert!(
@@ -643,7 +674,11 @@ pub(crate) fn maybe_seal_and_write_iobuf(
         next_lsn = (lsn_idx + 1) * io_buf_size as Lsn;
 
         // mark unused as clear
-        debug!("rolling to new segment after clearing {}-{}", lid, lid + res_len as LogId,);
+        debug!(
+            "rolling to new segment after clearing {}-{}",
+            lid,
+            lid + res_len as LogId,
+        );
 
         match iobufs.with_sa(|sa| sa.next(next_lsn)) {
             Ok(ret) => ret,
@@ -651,7 +686,7 @@ pub(crate) fn maybe_seal_and_write_iobuf(
                 iobufs.config.set_global_error(e.clone());
                 let _lock = iobufs.intervals.lock();
                 iobufs.interval_updated.notify_all();
-                return Err(e)
+                return Err(e);
             }
         }
     } else {
@@ -700,7 +735,10 @@ pub(crate) fn maybe_seal_and_write_iobuf(
     // if writers is 0, it's our responsibility to write the buffer.
     if n_writers(sealed) == 0 {
         iobufs.config.global_error()?;
-        trace!("asynchronously writing iobuf with lsn {} to log from maybe_seal", lsn);
+        trace!(
+            "asynchronously writing iobuf with lsn {} to log from maybe_seal",
+            lsn
+        );
         let iobufs = iobufs.clone();
         let iobuf = iobuf.clone();
         let _result = Promise::new(move || {
@@ -777,7 +815,11 @@ impl IoBuf {
 
         self.lsn = lsn;
 
-        let header = SegmentHeader { lsn, max_stable_lsn, ok: true };
+        let header = SegmentHeader {
+            lsn,
+            max_stable_lsn,
+            ok: true,
+        };
         let header_bytes: [u8; SEG_HEADER_LEN] = header.into();
 
         unsafe {

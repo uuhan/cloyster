@@ -41,7 +41,9 @@ impl Lru {
         let mut shard = shard_mu.lock();
         let mut to_evict = shard.accessed(safe_usize(item_pos), item_size);
         // map shard internal offsets to global items ids
-        to_evict.iter_mut().for_each(|pos| *pos = (*pos * shards) + shard_idx);
+        to_evict
+            .iter_mut()
+            .for_each(|pos| *pos = (*pos * shards) + shard_idx);
         to_evict
     }
 }
@@ -54,7 +56,10 @@ struct Entry {
 
 impl Default for Entry {
     fn default() -> Self {
-        Self { ptr: ptr::null_mut(), size: 0 }
+        Self {
+            ptr: ptr::null_mut(),
+            size: 0,
+        }
     }
 }
 
@@ -69,7 +74,12 @@ impl Shard {
     fn new(capacity: u64) -> Self {
         assert!(capacity > 0, "shard capacity must be non-zero");
 
-        Self { list: DoublyLinkedList::default(), entries: vec![], capacity, size: 0 }
+        Self {
+            list: DoublyLinkedList::default(),
+            entries: vec![],
+            capacity,
+            size: 0,
+        }
     }
 
     /// Items in the shard list are indexes of the entries.
@@ -96,7 +106,7 @@ impl Shard {
         while self.size > self.capacity {
             if self.list.len() == 1 {
                 // don't evict what we just added
-                break
+                break;
             }
 
             let min_pid = self.list.pop_tail().unwrap();

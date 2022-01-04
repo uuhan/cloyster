@@ -3,6 +3,18 @@
 version = 3
 
 [[package]]
+name = "abyss-promise"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "77d912164a7366089ddd189ed55e1e4148920d596fda5ba24a911dd4054436f7"
+dependencies = [
+ "crossbeam-channel",
+ "log",
+ "once_cell",
+ "parking_lot",
+]
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -116,13 +128,13 @@ checksum = "baf1de4339761588bc0619e3cbc0120ee582ebb74b53b4efbf79117bd2da40fd"
 
 [[package]]
 name = "cloyster"
-version = "0.1.0"
+version = "0.1.0-alpha.0"
 dependencies = [
+ "abyss-promise",
  "binary-heap-plus",
  "bincode",
  "blake3",
  "crc32fast",
- "crossbeam-channel",
  "crossbeam-epoch",
  "crossbeam-utils",
  "either",
@@ -130,7 +142,6 @@ dependencies = [
  "fs2",
  "fxhash",
  "im",
- "lazy_static",
  "libc",
  "log",
  "loom",

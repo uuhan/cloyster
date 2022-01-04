@@ -34,7 +34,9 @@ pub struct Stack<T: Send + 'static> {
 
 impl<T: Send + 'static> Default for Stack<T> {
     fn default() -> Self {
-        Self { head: Atomic::null() }
+        Self {
+            head: Atomic::null(),
+        }
     }
 }
 
@@ -83,7 +85,10 @@ impl<T: Send + 'static> Deref for Node<T> {
 impl<T: Clone + Send + Sync + 'static> Stack<T> {
     /// Add an item to the stack, spinning until successful.
     pub fn push(&self, inner: T) {
-        let node = Owned::new(Node { inner, next: Atomic::null() });
+        let node = Owned::new(Node {
+            inner,
+            next: Atomic::null(),
+        });
 
         unsafe {
             let node = node.into_shared(unprotected());
@@ -91,8 +96,12 @@ impl<T: Clone + Send + Sync + 'static> Stack<T> {
             loop {
                 let head = self.head(unprotected());
                 node.deref().next.store(head, Release);
-                if self.head.compare_exchange(head, node, Release, Relaxed, unprotected()).is_ok() {
-                    return
+                if self
+                    .head
+                    .compare_exchange(head, node, Release, Relaxed, unprotected())
+                    .is_ok()
+                {
+                    return;
                 }
             }
         }
@@ -106,13 +115,16 @@ impl<T: Clone + Send + Sync + 'static> Stack<T> {
             match unsafe { head.as_ref() } {
                 Some(h) => {
                     let next = h.next.load(Acquire, &guard);
-                    match self.head.compare_exchange(head, next, Release, Relaxed, &guard) {
+                    match self
+                        .head
+                        .compare_exchange(head, next, Release, Relaxed, &guard)
+                    {
                         Ok(_) => unsafe {
                             // NB It's important to unset the next pointer before destruction
                             // to avoid **DOUBLE-FREE**
                             h.next.store(Shared::default(), SeqCst);
                             guard.defer_destroy(head);
-                            return Some(ptr::read(&h.inner))
+                            return Some(ptr::read(&h.inner));
                         },
                         Err(h) => head = h.current,
                     }
@@ -129,7 +141,10 @@ impl<T: Clone + Send + Sync + 'static> Stack<T> {
         new: T,
         guard: &'g Guard,
     ) -> CompareAndSwapResult<'g, T> {
-        let node = Owned::new(Node { inner: new, next: Atomic::from(old) });
+        let node = Owned::new(Node {
+            inner: new,
+            next: Atomic::from(old),
+        });
 
         self.cap_node(old, node, guard)
     }
@@ -143,7 +158,9 @@ impl<T: Clone + Send + Sync + 'static> Stack<T> {
     ) -> CompareAndSwapResult<'g, T> {
         // properly set next ptr
         node.next = Atomic::from(old);
-        let res = self.head.compare_exchange(old, node, AcqRel, Acquire, guard);
+        let res = self
+            .head
+            .compare_exchange(old, node, AcqRel, Acquire, guard);
 
         match res {
             Err(e) => {
@@ -249,9 +266,15 @@ where
 
     for item in from.into_iter().rev() {
         last = if let Some(last) = last {
-            Some(Owned::new(Node { inner: item, next: Atomic::from(last) }))
+            Some(Owned::new(Node {
+                inner: item,
+                next: Atomic::from(last),
+            }))
         } else {
-            Some(Owned::new(Node { inner: item, next: Atomic::null() }))
+            Some(Owned::new(Node {
+                inner: item,
+                next: Atomic::null(),
+            }))
         }
     }
 

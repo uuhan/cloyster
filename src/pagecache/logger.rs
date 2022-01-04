@@ -1,6 +1,7 @@
 //! # Working with `Log`
 use super::*;
-use crate::{promise::Promise, sync::*};
+use crate::sync::*;
+use abyss_promise::Promise;
 
 /// A sequential store which allows users to create
 /// reservations placed at known log offsets, used
@@ -62,7 +63,13 @@ impl Log {
             let (_, blob_ptr) = ptr.blob();
             read_blob(blob_ptr, &self.config).map(|(kind, buf)| {
                 let sz = MSG_HEADER_LEN + BLOB_INLINE_LEN;
-                let header = MessageHeader { kind, pid, lsn, crc32: 0, len: sz as u32 };
+                let header = MessageHeader {
+                    kind,
+                    pid,
+                    lsn,
+                    crc32: 0,
+                    len: sz as u32,
+                };
                 LogRead::Blob(header, buf, blob_ptr)
             })
         }
@@ -199,7 +206,7 @@ impl Log {
             if let Err(e) = self.config.global_error() {
                 let _lock = self.iobufs.intervals.lock();
                 self.iobufs.interval_updated.notify_all();
-                return Err(e)
+                return Err(e);
             }
 
             // load current header value
@@ -214,7 +221,7 @@ impl Log {
 
                 backoff.snooze();
 
-                continue
+                continue;
             }
 
             // try to claim space
@@ -228,7 +235,7 @@ impl Log {
                 trace_once!("io buffer too full, spinning");
                 iobuf::maybe_seal_and_write_iobuf(&self.iobufs, &iobuf, header, true)?;
                 backoff.spin();
-                continue
+                continue;
             }
 
             // attempt to claim by incrementing an unsealed header
@@ -241,7 +248,7 @@ impl Log {
                     iobuf::MAX_WRITERS
                 );
                 backoff.snooze();
-                continue
+                continue;
             }
 
             let claimed = iobuf::incr_writers(bumped_offset);
@@ -250,7 +257,7 @@ impl Log {
                 // CAS failed, start over
                 trace_once!("CAS failed while claiming buffer slot, spinning");
                 backoff.spin();
-                continue
+                continue;
             }
 
             let log_id = iobuf.lid;
@@ -292,7 +299,9 @@ impl Log {
                 reservation_offset,
             );
 
-            self.iobufs.max_reserved_lsn.fetch_max(reservation_lsn, SeqCst);
+            self.iobufs
+                .max_reserved_lsn
+                .fetch_max(reservation_lsn, SeqCst);
 
             self.iobufs.encapsulate(
                 &*buf,
@@ -322,7 +331,7 @@ impl Log {
                 lsn: reservation_lsn,
                 ptr,
                 is_blob_rewrite,
-            })
+            });
         }
     }
 
@@ -338,7 +347,7 @@ impl Log {
             match iobuf.cas_header(header, new_hv) {
                 Ok(new) => {
                     header = new;
-                    break
+                    break;
                 }
                 Err(new) => {
                     // we failed to decr, retry
@@ -353,7 +362,7 @@ impl Log {
             if let Err(e) = self.config.global_error() {
                 let _lock = self.iobufs.intervals.lock();
                 self.iobufs.interval_updated.notify_all();
-                return Err(e)
+                return Err(e);
             }
 
             let lsn = iobuf.lsn;
@@ -385,7 +394,7 @@ impl Drop for Log {
     fn drop(&mut self) {
         // don't do any more IO if we're crashing
         if self.config.global_error().is_err() {
-            return
+            return;
         }
 
         if let Err(e) = iobuf::flush(&self.iobufs) {
@@ -502,7 +511,13 @@ impl From<[u8; MSG_HEADER_LEN]> for MessageHeader {
             let length = arr_to_u32(buf.get_unchecked(17..21));
             let crc32 = arr_to_u32(buf.get_unchecked(21..)) ^ 0xFFFF_FFFF;
 
-            Self { kind, pid: page_id, lsn, len: length, crc32 }
+            Self {
+                kind,
+                pid: page_id,
+                lsn,
+                len: length,
+                crc32,
+            }
         }
     }
 }
@@ -567,7 +582,11 @@ impl From<[u8; SEG_HEADER_LEN]> for SegmentHeader {
                 );
             }
 
-            Self { lsn, max_stable_lsn, ok }
+            Self {
+                lsn,
+                max_stable_lsn,
+                ok,
+            }
         }
     }
 }

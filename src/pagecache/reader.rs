@@ -43,7 +43,9 @@ impl LogReader for File {
         // in the header.
         unsafe {
             std::ptr::write_bytes(
-                msg_header_buf.as_mut_ptr().add(MSG_HEADER_LEN - std::mem::size_of::<u32>()),
+                msg_header_buf
+                    .as_mut_ptr()
+                    .add(MSG_HEADER_LEN - std::mem::size_of::<u32>()),
                 0xFF,
                 std::mem::size_of::<u32>(),
             );
@@ -52,7 +54,11 @@ impl LogReader for File {
         let _measure = Measure::new(&M.read);
         let segment_len = config.io_buf_size;
         let seg_start = lid / segment_len as LogId * segment_len as LogId;
-        trace!("reading message from segment: {} at lid: {}", seg_start, lid);
+        trace!(
+            "reading message from segment: {} at lid: {}",
+            seg_start,
+            lid
+        );
         assert!(seg_start + SEG_HEADER_LEN as LogId <= lid);
 
         let ceiling = seg_start + segment_len as LogId;
@@ -71,24 +77,33 @@ impl LogReader for File {
                 lid % segment_len as LogId,
                 hb
             );
-            return Ok(LogRead::Corrupted(header.len))
+            return Ok(LogRead::Corrupted(header.len));
         }
 
         if header.lsn != expected_lsn {
-            debug!("header {:?} does not contain expected lsn {}", header, expected_lsn);
-            return Ok(LogRead::Corrupted(header.len))
+            debug!(
+                "header {:?} does not contain expected lsn {}",
+                header, expected_lsn
+            );
+            return Ok(LogRead::Corrupted(header.len));
         }
 
         let max_possible_len = assert_usize(ceiling - lid - MSG_HEADER_LEN as LogId);
 
         if usize::try_from(header.len).unwrap() > max_possible_len {
-            trace!("read a corrupted message with impossibly long length {:?}", header);
-            return Ok(LogRead::Corrupted(header.len))
+            trace!(
+                "read a corrupted message with impossibly long length {:?}",
+                header
+            );
+            return Ok(LogRead::Corrupted(header.len));
         }
 
         if header.kind == MessageKind::Corrupted {
-            trace!("read a corrupted message with Corrupted MessageKind: {:?}", header);
-            return Ok(LogRead::Corrupted(header.len))
+            trace!(
+                "read a corrupted message with Corrupted MessageKind: {:?}",
+                header
+            );
+            return Ok(LogRead::Corrupted(header.len));
         }
 
         // perform crc check on everything that isn't Corrupted
@@ -104,8 +119,11 @@ impl LogReader for File {
         let crc32 = hasher.finalize();
 
         if crc32 != header.crc32 {
-            trace!("read a message with a bad checksum with header {:?}", header);
-            return Ok(LogRead::Corrupted(header.len))
+            trace!(
+                "read a message with a bad checksum with header {:?}",
+                header
+            );
+            return Ok(LogRead::Corrupted(header.len));
         }
 
         match header.kind {
@@ -126,12 +144,19 @@ impl LogReader for File {
                 match read_blob(id, config) {
                     Ok((kind, buf)) => {
                         assert_eq!(header.kind, kind);
-                        trace!("read a successful blob message for Blob({}, {})", header.lsn, id,);
+                        trace!(
+                            "read a successful blob message for Blob({}, {})",
+                            header.lsn,
+                            id,
+                        );
 
                         Ok(LogRead::Blob(header, buf, id))
                     }
                     Err(Error::Io(ref e)) if e.kind() == std::io::ErrorKind::NotFound => {
-                        debug!("underlying blob file not found for Blob({}, {})", header.lsn, id,);
+                        debug!(
+                            "underlying blob file not found for Blob({}, {})",
+                            header.lsn, id,
+                        );
                         Ok(LogRead::DanglingBlob(header, id))
                     }
                     Err(other_e) => {
@@ -147,7 +172,11 @@ impl LogReader for File {
             | MessageKind::Free
             | MessageKind::Counter => {
                 trace!("read a successful inline message");
-                let buf = if config.use_compression { maybe_decompress(buf)? } else { buf };
+                let buf = if config.use_compression {
+                    maybe_decompress(buf)?
+                } else {
+                    buf
+                };
 
                 Ok(LogRead::Inline(header, buf, header.len))
             }

@@ -1,5 +1,5 @@
 use self::reader::LogReader;
-use crate::promise::Promise;
+use abyss_promise::Promise;
 use std::{collections::BTreeMap, io};
 
 use super::*;
@@ -40,18 +40,18 @@ impl Iterator for LogIter {
                              iterator: {:?}",
                             e
                         );
-                        return None
+                        return None;
                     }
                 } else {
                     trace!("no segments remaining to iterate over");
-                    return None
+                    return None;
                 }
             }
 
             if self.cur_lsn > self.max_lsn {
                 // all done
                 trace!("hit max_lsn {} in iterator, stopping", self.max_lsn);
-                return None
+                return None;
             }
 
             let lid = self.segment_base.unwrap()
@@ -71,7 +71,7 @@ impl Iterator for LogIter {
                         header.lsn,
                         DiskPtr::Blob(lid, blob_ptr),
                         sz,
-                    ))
+                    ));
                 }
                 Ok(LogRead::Inline(header, _buf, on_disk_len)) => {
                     trace!("read inline flush in LogIter::next");
@@ -84,14 +84,14 @@ impl Iterator for LogIter {
                         header.lsn,
                         DiskPtr::Inline(lid),
                         sz,
-                    ))
+                    ));
                 }
                 Ok(LogRead::BatchManifest(last_lsn_in_batch)) => {
                     if last_lsn_in_batch > self.max_lsn {
-                        return None
+                        return None;
                     } else {
                         self.cur_lsn += (MSG_HEADER_LEN + BATCH_MANIFEST_INLINE_LEN) as Lsn;
-                        continue
+                        continue;
                     }
                 }
                 Ok(LogRead::Failed(_, on_disk_len)) => {
@@ -104,12 +104,12 @@ impl Iterator for LogIter {
                         lid,
                         self.cur_lsn
                     );
-                    return None
+                    return None;
                 }
                 Ok(LogRead::Pad(_lsn)) => {
                     self.segment_base.take();
 
-                    continue
+                    continue;
                 }
                 Ok(LogRead::DanglingBlob(header, blob_ptr)) => {
                     debug!(
@@ -118,7 +118,7 @@ impl Iterator for LogIter {
                         header.lsn, blob_ptr
                     );
                     self.cur_lsn += (MSG_HEADER_LEN + BLOB_INLINE_LEN) as Lsn;
-                    continue
+                    continue;
                 }
                 Err(e) => {
                     debug!(
@@ -126,7 +126,7 @@ impl Iterator for LogIter {
                          with expected lsn {} during iteration: {}",
                         lid, self.cur_lsn, e
                     );
-                    return None
+                    return None;
                 }
             }
         }
@@ -137,7 +137,11 @@ impl LogIter {
     /// read a segment of log messages. Only call after
     /// pausing segment rewriting on the segment accountant!
     fn read_segment(&mut self, lsn: Lsn, offset: LogId) -> Result<()> {
-        trace!("LogIter::read_segment lsn: {:?} cur_lsn: {:?}", lsn, self.cur_lsn);
+        trace!(
+            "LogIter::read_segment lsn: {:?} cur_lsn: {:?}",
+            lsn,
+            self.cur_lsn
+        );
         // we add segment_len to this check because we may be getting the
         // initial segment that is a bit behind where we left off before.
         assert!(lsn + self.config.io_buf_size as Lsn >= self.cur_lsn);
@@ -145,7 +149,9 @@ impl LogIter {
         let segment_header = f.read_segment_header(offset)?;
         if offset % self.config.io_buf_size as LogId != 0 {
             debug!("segment offset not divisible by segment length");
-            return Err(Error::Corruption { at: DiskPtr::Inline(offset) })
+            return Err(Error::Corruption {
+                at: DiskPtr::Inline(offset),
+            });
         }
         if segment_header.lsn % self.config.io_buf_size as Lsn != 0 {
             debug!(
@@ -153,13 +159,18 @@ impl LogIter {
                  by the io_buf_size ({}) instead it was {}",
                 self.config.io_buf_size, segment_header.lsn
             );
-            return Err(Error::Corruption { at: DiskPtr::Inline(offset) })
+            return Err(Error::Corruption {
+                at: DiskPtr::Inline(offset),
+            });
         }
 
         if segment_header.lsn != lsn {
             // this page was torn, nothing to read
-            debug!("segment header lsn ({}) != expected lsn ({})", segment_header.lsn, lsn);
-            return Err(io::Error::new(io::ErrorKind::Other, "encountered torn segment").into())
+            debug!(
+                "segment header lsn ({}) != expected lsn ({})",
+                segment_header.lsn, lsn
+            );
+            return Err(io::Error::new(io::ErrorKind::Other, "encountered torn segment").into());
         }
 
         trace!("read segment header {:?}", segment_header);
@@ -184,7 +195,10 @@ impl LogIter {
             )
         };
         if ret != 0 {
-            panic!("failed to call fadvise: {}", std::io::Error::from_raw_os_error(ret));
+            panic!(
+                "failed to call fadvise: {}",
+                std::io::Error::from_raw_os_error(ret)
+            );
         }
     }
 }
@@ -206,7 +220,11 @@ fn scan_segment_lsns(min: Lsn, config: &Config) -> Result<(BTreeMap<Lsn, LogId>,
         let segment_len = u64::try_from(config.io_buf_size).unwrap();
         let base_lid = idx * segment_len;
         let segment = config.file.read_segment_header(base_lid).ok()?;
-        trace!("SA scanned header at lid {} during startup: {:?}", base_lid, segment);
+        trace!(
+            "SA scanned header at lid {} during startup: {:?}",
+            base_lid,
+            segment
+        );
         if segment.ok && segment.lsn >= min {
             assert_ne!(segment.lsn, Lsn::max_value());
             Some((base_lid, segment))
@@ -227,8 +245,17 @@ fn scan_segment_lsns(min: Lsn, config: &Config) -> Result<(BTreeMap<Lsn, LogId>,
     let f = &config.file;
     let file_len = f.metadata()?.len();
     let segments = (file_len / segment_len)
-        + if file_len % segment_len < LogId::try_from(SEG_HEADER_LEN).unwrap() { 0 } else { 1 };
-    trace!("file len: {} segment len {} segments: {}", file_len, segment_len, segments);
+        + if file_len % segment_len < LogId::try_from(SEG_HEADER_LEN).unwrap() {
+            0
+        } else {
+            1
+        };
+    trace!(
+        "file len: {} segment len {} segments: {}",
+        file_len,
+        segment_len,
+        segments
+    );
 
     let header_promises: Vec<Promise<Option<(LogId, SegmentHeader)>>> = (0..segments)
         .map({
@@ -242,8 +269,10 @@ fn scan_segment_lsns(min: Lsn, config: &Config) -> Result<(BTreeMap<Lsn, LogId>,
         })
         .collect();
 
-    let headers: Vec<(LogId, SegmentHeader)> =
-        header_promises.into_iter().filter_map(|p| p.resolve().unwrap()).collect();
+    let headers: Vec<(LogId, SegmentHeader)> = header_promises
+        .into_iter()
+        .filter_map(|p| p.resolve().unwrap())
+        .collect();
 
     let mut ordering = BTreeMap::new();
     let mut max_header_stable_lsn = 0;
@@ -326,18 +355,23 @@ fn clean_tail_tears(
         cur_lsn: 0,
     };
 
-    let tip: (Lsn, LogId) = iter.max_by_key(|(_kind, _pid, lsn, _ptr, _sz)| *lsn).map_or_else(
-        || {
-            if max_header_stable_lsn > 0 {
-                (lowest_lsn_in_tail, ordering[&lowest_lsn_in_tail])
-            } else {
-                (0, 0)
-            }
-        },
-        |(_, _, lsn, ptr, _)| (lsn, ptr.lid()),
-    );
+    let tip: (Lsn, LogId) = iter
+        .max_by_key(|(_kind, _pid, lsn, _ptr, _sz)| *lsn)
+        .map_or_else(
+            || {
+                if max_header_stable_lsn > 0 {
+                    (lowest_lsn_in_tail, ordering[&lowest_lsn_in_tail])
+                } else {
+                    (0, 0)
+                }
+            },
+            |(_, _, lsn, ptr, _)| (lsn, ptr.lid()),
+        );
 
-    debug!("filtering out segments after detected tear at lsn {} lid {}", tip.0, tip.1);
+    debug!(
+        "filtering out segments after detected tear at lsn {} lid {}",
+        tip.0, tip.1
+    );
     for (lsn, lid) in ordering.range((std::ops::Bound::Excluded(tip.0), std::ops::Bound::Unbounded))
     {
         debug!("zeroing torn segment with lsn {} at lid {}", lsn, lid);
@@ -351,7 +385,10 @@ fn clean_tail_tears(
         }
     }
 
-    ordering = ordering.into_iter().filter(|&(lsn, _lid)| lsn <= tip.0).collect();
+    ordering = ordering
+        .into_iter()
+        .filter(|&(lsn, _lid)| lsn <= tip.0)
+        .collect();
 
     Ok(ordering)
 }
@@ -391,9 +428,17 @@ pub(super) fn raw_segment_iter_from(lsn: Lsn, config: &Config) -> Result<(LogIte
 
     trace!("found max stable tip: {}", tip);
 
-    trace!("generated iterator over segments {:?} with lsn >= {}", ordering, normalized_lsn,);
+    trace!(
+        "generated iterator over segments {:?} with lsn >= {}",
+        ordering,
+        normalized_lsn,
+    );
 
-    let segment_iter = Box::new(ordering.into_iter().filter(move |&(l, _)| l >= normalized_lsn));
+    let segment_iter = Box::new(
+        ordering
+            .into_iter()
+            .filter(move |&(l, _)| l >= normalized_lsn),
+    );
 
     Ok((
         LogIter {

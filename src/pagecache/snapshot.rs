@@ -62,7 +62,8 @@ impl Snapshot {
             LogKind::Replace => {
                 trace!("compact of pid {} at ptr {} lsn {}", pid, disk_ptr, lsn,);
 
-                self.pt.insert(pid, PageState::Present(vec![(lsn, disk_ptr, sz)]));
+                self.pt
+                    .insert(pid, PageState::Present(vec![(lsn, disk_ptr, sz)]));
             }
             LogKind::Append => {
                 // Because we rewrite pages over time, we may have relocated
@@ -80,7 +81,7 @@ impl Snapshot {
                              allocation of this page, skipping push"
                         );
 
-                        return
+                        return;
                     }
 
                     lids.push((lsn, disk_ptr, sz));
@@ -91,7 +92,10 @@ impl Snapshot {
                 self.pt.insert(pid, PageState::Free(lsn, disk_ptr));
             }
             LogKind::Corrupted | LogKind::Skip => {
-                panic!("unexppected messagekind in snapshot application: {:?}", log_kind)
+                panic!(
+                    "unexppected messagekind in snapshot application: {:?}",
+                    log_kind
+                )
             }
         }
     }
@@ -109,7 +113,11 @@ pub(super) fn advance_snapshot(
     let old_lsn = snapshot.last_lsn;
 
     for (log_kind, pid, lsn, ptr, sz) in iter {
-        trace!("in advance_snapshot looking at item with lsn {} ptr {}", lsn, ptr);
+        trace!(
+            "in advance_snapshot looking at item with lsn {} ptr {}",
+            lsn,
+            ptr
+        );
 
         if lsn <= snapshot.last_lsn {
             // don't process already-processed Lsn's. last_lsn is for the last
@@ -120,7 +128,7 @@ pub(super) fn advance_snapshot(
                 ptr,
                 snapshot.last_lsn
             );
-            continue
+            continue;
         }
 
         assert!(lsn > snapshot.last_lsn);
@@ -158,7 +166,7 @@ fn read_snapshot(config: &Config) -> std::io::Result<Option<Snapshot>> {
         let mut candidates = config.get_snapshot_files()?;
         if candidates.is_empty() {
             debug!("no previous snapshot found");
-            return Ok(None)
+            return Ok(None);
         }
 
         candidates.sort();
@@ -169,7 +177,7 @@ fn read_snapshot(config: &Config) -> std::io::Result<Option<Snapshot>> {
             Ok(f) => break f,
             Err(ref e) if e.kind() == std::io::ErrorKind::NotFound => {
                 // this can happen if there's a race
-                continue
+                continue;
             }
             Err(other) => return Err(other),
         }
@@ -177,7 +185,7 @@ fn read_snapshot(config: &Config) -> std::io::Result<Option<Snapshot>> {
 
     if f.metadata()?.len() <= 12 {
         warn!("empty/corrupt snapshot file found");
-        return Ok(None)
+        return Ok(None);
     }
 
     let mut buf = vec![];
@@ -195,7 +203,7 @@ fn read_snapshot(config: &Config) -> std::io::Result<Option<Snapshot>> {
     let crc_actual = crc32(&buf);
 
     if crc_expected != crc_actual {
-        return Ok(None)
+        return Ok(None);
     }
 
     #[cfg(feature = "zstd")]
@@ -241,7 +249,10 @@ fn write_snapshot(config: &Config, snapshot: &Snapshot) -> Result<()> {
 
     let parent = path_1.parent().unwrap();
     std::fs::create_dir_all(parent)?;
-    let mut f = std::fs::OpenOptions::new().write(true).create(true).open(&path_1)?;
+    let mut f = std::fs::OpenOptions::new()
+        .write(true)
+        .create(true)
+        .open(&path_1)?;
 
     // write the snapshot bytes, followed by a crc64 checksum at the end
     maybe_fail!("snap write");
@@ -271,7 +282,10 @@ fn write_snapshot(config: &Config, snapshot: &Snapshot) -> Result<()> {
 
             if let Err(e) = std::fs::remove_file(&path) {
                 // TODO should this just be a try return?
-                warn!("failed to remove old snapshot file, maybe snapshot race? {}", e);
+                warn!(
+                    "failed to remove old snapshot file, maybe snapshot race? {}",
+                    e
+                );
             }
         }
     }

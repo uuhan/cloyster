@@ -21,16 +21,24 @@ unsafe impl<T: Send> Send for FastLock<T> {}
 impl<T> FastLock<T> {
     #[cfg(not(loom))]
     pub const fn new(inner: T) -> FastLock<T> {
-        FastLock { lock: AtomicBool::new(false), inner: UnsafeCell::new(inner) }
+        FastLock {
+            lock: AtomicBool::new(false),
+            inner: UnsafeCell::new(inner),
+        }
     }
 
     #[cfg(loom)]
     pub fn new(inner: T) -> FastLock<T> {
-        FastLock { lock: AtomicBool::new(false), inner: UnsafeCell::new(inner) }
+        FastLock {
+            lock: AtomicBool::new(false),
+            inner: UnsafeCell::new(inner),
+        }
     }
 
     pub fn try_lock(&self) -> Option<FastLockGuard<'_, T>> {
-        let lock_result = self.lock.compare_exchange_weak(false, true, Acquire, Acquire);
+        let lock_result = self
+            .lock
+            .compare_exchange_weak(false, true, Acquire, Acquire);
 
         let success = lock_result.is_ok();
 
@@ -89,7 +97,7 @@ mod tests {
                 loop {
                     if let Some(mut lock) = lock_clone.try_lock() {
                         *lock = *lock + 1;
-                        break
+                        break;
                     }
                 }
             })

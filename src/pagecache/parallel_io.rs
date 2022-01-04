@@ -58,7 +58,10 @@ mod window {
                 }
             }
             if !buf.is_empty() {
-                Err(io::Error::new(io::ErrorKind::UnexpectedEof, "failed to fill whole buffer"))
+                Err(io::Error::new(
+                    io::ErrorKind::UnexpectedEof,
+                    "failed to fill whole buffer",
+                ))
             } else {
                 Ok(())
             }

@@ -36,7 +36,9 @@ pub struct Stack<T: Send + 'static> {
 
 impl<T: Send + 'static> Default for Stack<T> {
     fn default() -> Self {
-        Self { head: Atomic::null() }
+        Self {
+            head: Atomic::null(),
+        }
     }
 }
 
@@ -68,7 +70,10 @@ impl<T: Clone + Send + Sync + 'static> Stack<T> {
     }
 
     pub fn push(&self, inner: T) {
-        let node = Owned::new(Node { inner, next: Atomic::null() });
+        let node = Owned::new(Node {
+            inner,
+            next: Atomic::null(),
+        });
 
         unsafe {
             let node = node.into_shared(unprotected());
@@ -90,7 +95,7 @@ impl<T: Clone + Send + Sync + 'static> Stack<T> {
                     )
                     .is_ok()
                 {
-                    return
+                    return;
                 }
             }
         }
@@ -131,7 +136,9 @@ impl<T: Clone + Send + Sync + 'static> Stack<T> {
     ) -> CasResult<'g, T> {
         // pushed node always keeps the prev pointer
         node.next = Atomic::from(old);
-        let res = self.head.compare_exchange(old, node, AcqRel, Acquire, guard);
+        let res = self
+            .head
+            .compare_exchange(old, node, AcqRel, Acquire, guard);
 
         match res {
             Ok(success) => Either::Left(success),

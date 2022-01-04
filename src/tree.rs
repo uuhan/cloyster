@@ -40,7 +40,12 @@ impl TreeBlock {
 
         let (id, _) = context.pagecache.allocate(Node::new(prev), guard)?;
 
-        Ok(Self { context, hash, cookie, id })
+        Ok(Self {
+            context,
+            hash,
+            cookie,
+            id,
+        })
     }
 
     /// The preceded block
@@ -55,7 +60,12 @@ impl TreeBlock {
                 let hash = Arc::new(RwLock::new(h));
                 let cookie = Arc::new(RwLock::new(BTreeMap::new()));
 
-                node.prev.map(|id| Self { context, hash, cookie, id })
+                node.prev.map(|id| Self {
+                    context,
+                    hash,
+                    cookie,
+                    id,
+                })
             })
             .flatten())
     }
@@ -104,7 +114,7 @@ impl TreeBlock {
     /// Hash code of current state or the stablized hash
     fn hash(&self, guard: &Guard) -> IResult<Hash> {
         if let Some(hash) = *self.hash.read() {
-            return Ok(hash)
+            return Ok(hash);
         } else {
             let (mut key, node, _) = self.context.get(self.id, guard).unwrap().unwrap();
 
@@ -128,7 +138,7 @@ impl TreeBlock {
                     }
                 }),
             );
-            return Ok(hash)
+            return Ok(hash);
         }
     }
 
@@ -136,7 +146,7 @@ impl TreeBlock {
     pub fn commit(mut self) -> IResult<Hash> {
         let guard = pin();
         if let Some(hash) = *self.hash.read() {
-            return Ok(hash)
+            return Ok(hash);
         }
 
         let mut hash_rwl = self.hash.write();
@@ -183,7 +193,8 @@ impl TreeBlock {
 
         // update meta-page
         // NB: maybe fairly slow
-        self.context.cas_block_in_meta(hash.as_bytes(), None, Some(id), &guard)?;
+        self.context
+            .cas_block_in_meta(hash.as_bytes(), None, Some(id), &guard)?;
 
         self.context.flush();
 
@@ -207,7 +218,7 @@ impl TreeBlock {
     /// db insertion, we insert operations not value itself.
     fn insert_inner(&self, key: Key, entry: Entry) -> DBResult<Value> {
         if self.commited() {
-            return Err(Error::CommitedState)
+            return Err(Error::CommitedState);
         }
 
         match self.cookie.write().insert(key, entry) {
@@ -228,7 +239,7 @@ impl TreeBlock {
         while let Some(last) = upper.pop() {
             if last < u8::max_value() {
                 upper.push(last + 1);
-                return self.range(key..&upper)
+                return self.range(key..&upper);
             }
         }
         self.range(key..)
@@ -377,8 +388,14 @@ mod tests {
         block.insert(b"0".to_vec(), b"0".to_vec()).unwrap();
 
         // case #2. range from non-empty store
-        assert_eq!(block.iter().next().transpose().unwrap(), Some((b"0".to_vec(), b"0".to_vec())));
-        assert_eq!(block.iter().last().transpose().unwrap(), Some((b"9".to_vec(), b"*".to_vec())));
+        assert_eq!(
+            block.iter().next().transpose().unwrap(),
+            Some((b"0".to_vec(), b"0".to_vec()))
+        );
+        assert_eq!(
+            block.iter().last().transpose().unwrap(),
+            Some((b"9".to_vec(), b"*".to_vec()))
+        );
 
         // Have: 0 in memtable
         // Have: 2 1 4 3 in l0 sstable
@@ -447,7 +464,10 @@ mod tests {
             assert_eq!(k, correct);
         }
 
-        assert_eq!(block.iter().last().unwrap().unwrap(), (b"9".to_vec(), b"*".to_vec()));
+        assert_eq!(
+            block.iter().last().unwrap().unwrap(),
+            (b"9".to_vec(), b"*".to_vec())
+        );
     }
 
     #[cfg(not(loom))]
@@ -475,7 +495,10 @@ mod tests {
 
         assert_eq!(
             result,
-            vec![(b"010".to_vec(), b"0".to_vec()), (b"020".to_vec(), b"0".to_vec()),]
+            vec![
+                (b"010".to_vec(), b"0".to_vec()),
+                (b"020".to_vec(), b"0".to_vec()),
+            ]
         );
 
         let result = block
@@ -487,7 +510,10 @@ mod tests {
 
         assert_eq!(
             result,
-            vec![(b"12".to_vec(), b"1".to_vec()), (b"123".to_vec(), b"1".to_vec()),]
+            vec![
+                (b"12".to_vec(), b"1".to_vec()),
+                (b"123".to_vec(), b"1".to_vec()),
+            ]
         );
     }
 

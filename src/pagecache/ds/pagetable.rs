@@ -77,7 +77,7 @@ fn drop_iter<T>(iter: core::slice::Iter<'_, Atomic<T>>) {
             if shared_child.as_raw().is_null() {
                 // this does not leak because the PageTable is
                 // assumed to be dense.
-                break
+                break;
             }
             drop(shared_child.into_owned());
         }
@@ -98,7 +98,9 @@ where
 {
     fn default() -> Self {
         let head = Node1::new();
-        Self { head: Atomic::from(head) }
+        Self {
+            head: Atomic::from(head),
+        }
     }
 }
 
@@ -122,7 +124,9 @@ where
     ) -> std::result::Result<Shared<'g, T>, Shared<'g, T>> {
         let tip = traverse(self.head.load(Acquire, guard), pid, guard);
 
-        let _ = tip.compare_exchange(old, new, Release, Relaxed, guard).map_err(|e| e.current)?;
+        let _ = tip
+            .compare_exchange(old, new, Release, Relaxed, guard)
+            .map_err(|e| e.current)?;
 
         if !old.is_null() {
             unsafe {
@@ -230,8 +234,14 @@ where
 
 #[test]
 fn test_split_fanout() {
-    assert_eq!(split_fanout(0b11_1111_1111_1111_1111), (0, 0b11_1111_1111_1111_1111));
-    assert_eq!(split_fanout(0b111_1111_1111_1111_1111), (0b1, 0b11_1111_1111_1111_1111));
+    assert_eq!(
+        split_fanout(0b11_1111_1111_1111_1111),
+        (0, 0b11_1111_1111_1111_1111)
+    );
+    assert_eq!(
+        split_fanout(0b111_1111_1111_1111_1111),
+        (0b1, 0b11_1111_1111_1111_1111)
+    );
 }
 
 #[test]
@@ -243,7 +253,8 @@ fn basic_functionality() {
         rt.cas(0, Shared::null(), v1, &guard).unwrap();
         let ptr = rt.get(0, &guard).unwrap();
         assert_eq!(ptr.deref(), &5);
-        rt.cas(0, ptr, Owned::new(6).into_shared(&guard), &guard).unwrap();
+        rt.cas(0, ptr, Owned::new(6).into_shared(&guard), &guard)
+            .unwrap();
         assert_eq!(rt.get(0, &guard).unwrap().deref(), &6);
         rt.del(0, &guard);
         assert!(rt.get(0, &guard).is_none());
